@@ -6,7 +6,7 @@
 <title>A surprise 🎁</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data:; media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
 :root{--pink:#ff6fa5;--rose:#ffb3d1;--gold:#ffd166;--deep:#2a1038;--purple:#7b2cbf}
@@ -16,6 +16,10 @@ html,body{height:100%;overflow:hidden;font-family:'Poppins',sans-serif;color:#ff
 .scene{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .9s;overflow:hidden}
 .scene.active{opacity:1;pointer-events:auto}
+/* hidden scenes must be completely untouchable (otherwise their invisible photos/buttons catch taps meant for the visible scene) */
+.scene{visibility:hidden;transition:opacity .9s,visibility 0s .9s}
+.scene.active{visibility:visible;transition:opacity .9s,visibility 0s 0s}
+.scene:not(.active),.scene:not(.active) *{pointer-events:none!important}
 .bg1{background:radial-gradient(circle at 50% 100%,#ff9ec7,#7b2cbf 60%,#2a1038)}
 .bg2{background:linear-gradient(160deg,#ff6fa5,#ffb36b)}
 .bg3{background:linear-gradient(180deg,#120a33,#4a2a7a 55%,#d4619a)}
@@ -48,24 +52,6 @@ h1.big{font-size:clamp(2.2rem,9vw,4.5rem);line-height:1.15;text-shadow:0 4px 20p
 #floaters{position:fixed;inset:0;pointer-events:none;z-index:49;overflow:hidden}
 #floaters span{position:absolute;bottom:-40px;opacity:0;animation:floatUp linear infinite}
 @keyframes floatUp{0%{transform:translateY(0) rotate(0);opacity:0}10%{opacity:.5}90%{opacity:.35}100%{transform:translateY(-110vh) rotate(40deg);opacity:0}}
-
-/* ---------- 🔒 password gate ---------- */
-#gate{position:fixed;inset:0;z-index:48;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;
-  background:radial-gradient(circle at 50% 30%,#4a1d6b,#14041f 70%);transition:opacity .8s,visibility .8s}
-#gate.gone{opacity:0;visibility:hidden;pointer-events:none}
-.gateBox{max-width:360px;width:100%}
-.lock{font-size:4.5rem;display:inline-block;animation:lockPulse 2s ease-in-out infinite;filter:drop-shadow(0 0 22px rgba(255,111,165,.7))}
-@keyframes lockPulse{50%{transform:scale(1.12) rotate(-6deg)}}
-.gateBox h1{font-size:2.4rem;margin:8px 0 4px}
-.gateBox p{opacity:.85}
-#pass{width:100%;margin-top:18px;padding:14px 18px;border-radius:50px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);
-  color:#fff;font:400 1.05rem 'Poppins';text-align:center;outline:none;transition:border-color .2s,box-shadow .2s}
-#pass::placeholder{color:rgba(255,255,255,.5)}
-#pass:focus{border-color:var(--pink);box-shadow:0 0 0 4px rgba(255,111,165,.25)}
-#pass.bad{animation:shakeX .45s;border-color:#ff5c5c}
-@keyframes shakeX{20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
-#gateErr{color:#ffb3b3;min-height:1.4em;margin-top:12px;font-size:.95rem}
-#hint{opacity:.8;margin-top:14px;font-size:.95rem}
 
 /* 1 lilies */
 #lilyField{position:absolute;inset:0}
@@ -223,21 +209,6 @@ h1.big{font-size:clamp(2.2rem,9vw,4.5rem);line-height:1.15;text-shadow:0 4px 20p
 <audio id="bgm" src="music.mp3" loop preload="auto"></audio>
 <div id="lb"><img id="lbImg" alt="memory" draggable="false"></div>
 
-<!-- 🔒 password gate (only shown when vault.enc exists) -->
-<div id="gate">
-  <div class="gateBox">
-    <div class="lock" id="lockIcon">🔒</div>
-    <h1 class="script">A surprise is waiting…</h1>
-    <p>Type the secret word to open it</p>
-    <form id="gateForm" autocomplete="off">
-      <input id="pass" type="password" placeholder="secret word" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go">
-      <button class="btn" type="submit" id="unlockBtn">Unlock 💝</button>
-    </form>
-    <p id="hint"></p>
-    <p id="gateErr"></p>
-  </div>
-</div>
-
 <!-- 1 -->
 <section class="scene bg1" id="s1">
   <div id="lilyField"></div>
@@ -321,13 +292,9 @@ h1.big{font-size:clamp(2.2rem,9vw,4.5rem);line-height:1.15;text-shadow:0 4px 20p
 
 <script>
 /* =====================================================================
-   ✏️ EDIT THIS PART  (only used in "open mode", i.e. when there is NO vault.enc)
-
-   🔒 SECURE MODE (recommended for GitHub):
-      Use vault-maker.html to put your photos + letter + name into an
-      encrypted vault.enc. When vault.enc sits next to index.html, the page
-      asks for the secret word and everything below is IGNORED, so keep these
-      as harmless placeholders and never type the real private letter here.
+   ✏️ EDIT THIS PART: your name, letter, balloon reasons and captions.
+   Photos: put 6 pictures in the "photos" folder named 1, 2, 3, 4, 5, 6
+   (.jpg .jpeg .png or .webp, found automatically).
    ===================================================================== */
 const CONFIG = {
   name: "PC",
@@ -337,7 +304,7 @@ const CONFIG = {
   /* open mode: put photos in the "photos" folder named 1, 2, 3, 4, 5, 6
      (.jpg .jpeg .png or .webp, found automatically) */
   photoCount: 6,
-  captions: ["Us ✨","Best day 💖","So much fun 😂","Memories 🌸","Supini 🥰","Forever 💫"],
+  captions: ["Us ✨","Best day 💖","So much fun 😂","Memories 🌸","Squad 🥰","Forever 💫"],
   reasons: [
     "You make every moment brighter 🌟",
     "Your smile can fix a bad day 😊",
@@ -360,7 +327,7 @@ const CONFIG = {
 
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const NS="http://www.w3.org/2000/svg";
-let PHOTOS=[];            // image URLs (blob: in secure mode, photos/N.ext in open mode)
+let PHOTOS=[];            // image paths: photos/1.jpg ... photos/6.jpg
 function applyConfig(){document.title=`Happy Birthday ${CONFIG.name} 🎉`;$$('.nm').forEach(e=>e.textContent=CONFIG.name)}
 function rnd(seed){let s=seed%2147483647;if(s<=0)s+=2147483646;return()=>((s=s*16807%2147483647)-1)/2147483646}
 
@@ -370,10 +337,9 @@ function showEl(el){el.classList.remove('hidden');replay(el)}
 function popScene(sc){let i=0;$$('.pi',sc).forEach(e=>{if(e.classList.contains('hidden'))return;e.style.setProperty('--i',i++);replay(e)})}
 let T=[];const later=(f,ms)=>T.push(setTimeout(f,ms));
 
-/* ---------- light protection for photos (deterrent only) ---------- */
+/* ---------- stop accidental right-click / drag on photos ---------- */
 document.addEventListener('contextmenu',e=>{if(e.target.closest('#stage,#lb,#finalPhoto'))e.preventDefault()});
 document.addEventListener('dragstart',e=>{if(e.target.tagName==='IMG')e.preventDefault()});
-addEventListener('pagehide',()=>PHOTOS.forEach(u=>{if(u.startsWith('blob:'))URL.revokeObjectURL(u)}));
 
 /* ---------- floating hearts ---------- */
 (function(){const f=$('#floaters'),em=['💖','✨','🌸','💫','🎈','💕'];
@@ -400,8 +366,27 @@ const rain=()=>{for(let i=0;i<6;i++)later(()=>burst(Math.random()*innerWidth,Mat
 
 /* ---------- music + pop sound ---------- */
 const bgm=$('#bgm');let muted=false,actx;
-$('#mute').onclick=()=>{muted=!muted;bgm.muted=muted;$('#mute').textContent=muted?'🔇':'🔊'};
-bgm.addEventListener('error',()=>$('#mute').classList.add('hidden'),true);
+const musicUI=()=>{$('#mute').textContent=(muted||bgm.paused)?'🔇':'🔊'};
+function playMusic(){
+  const p=bgm.play();
+  if(p&&p.then)p.then(musicUI).catch(e=>{console.warn('Music could not start:',e.name,'-',e.message);musicUI()});
+}
+// button: if music isn't playing, START it; otherwise mute / unmute
+$('#mute').onclick=()=>{
+  if(bgm.paused){muted=false;bgm.muted=false;playMusic()}
+  else{muted=!muted;bgm.muted=muted}
+  musicUI();
+};
+bgm.addEventListener('playing',musicUI);bgm.addEventListener('pause',musicUI);
+function musicFail(){
+  console.warn('Music file problem. The page tried to load:',bgm.currentSrc,'| MediaError code:',bgm.error&&bgm.error.code,'(4 = file missing or unsupported)');
+  $('#mute').classList.add('hidden');
+}
+bgm.addEventListener('error',musicFail,true);
+if(bgm.error||bgm.networkState===3)musicFail();   // the error may already have happened before this script ran
+musicUI();
+// if the browser blocked autoplay, the next tap anywhere starts the music
+document.addEventListener('pointerdown',()=>{if(bgm.paused&&!muted&&!bgm.error)playMusic()},{passive:true});
 function popSound(){
   if(muted)return;
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
@@ -415,72 +400,25 @@ let cur=0;const scenes=$$('.scene');
 const enter={1:s2,2:s3,3:s4,4:s5,5:s6,6:s7,7:s8,0:s1};
 function go(i){
   T.forEach(clearTimeout);T=[];
+  clearInterval(fw);clearInterval(letterTimer);parts=[];     // stop fireworks / letter countdown left over from earlier scenes
+  $('#letter').classList.remove('show');$('#reason').classList.remove('show');$('#lb').classList.remove('show');
   scenes[cur].classList.remove('active');cur=i;
   setTimeout(()=>{scenes[cur].classList.add('active');popScene(scenes[cur]);(enter[cur]||(()=>{}))()},500);
 }
 $$('[data-next]').forEach(b=>b.addEventListener('click',()=>go(cur+1)));
 $('#lb').onclick=()=>$('#lb').classList.remove('show');
 
-/* =====================================================================
-   🔒 VAULT  (AES-256-GCM, key from PBKDF2-SHA256 · 600,000 rounds)
-   file layout: "BDV1" | hintLen(2) | hint | salt(16) | iv(12) | ciphertext
-   ===================================================================== */
-const te=new TextEncoder(),td=new TextDecoder();
-const normPass=s=>s.normalize('NFKC').trim().toLowerCase();
-function vaultOK(b){return b&&b.length>50&&b[0]===0x42&&b[1]===0x44&&b[2]===0x56&&b[3]===0x31}
-function vaultHint(b){const hl=(b[4]<<8)|b[5];return td.decode(b.slice(6,6+hl))}
-async function vaultOpen(b,pass){
-  const hl=(b[4]<<8)|b[5],he=6+hl;
-  const salt=b.slice(he,he+16),iv=b.slice(he+16,he+28),header=b.slice(0,he+28),ct=b.slice(he+28);
-  const km=await crypto.subtle.importKey('raw',te.encode(normPass(pass)),'PBKDF2',false,['deriveKey']);
-  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:600000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
-  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:header},key,ct);   // throws if wrong password
-  return JSON.parse(td.decode(pt));
-}
-function b64ToBytes(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
-const strArr=(a,fb)=>Array.isArray(a)&&a.length?a.map(String):fb;
-
-let VAULT=null,fails=0;
-function showGate(){
-  $('#hint').textContent=vaultHint(VAULT)?('Hint: '+vaultHint(VAULT)):'';
-  setTimeout(()=>$('#pass').focus(),300);
-}
-$('#gateForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const inp=$('#pass'),btn=$('#unlockBtn'),err=$('#gateErr');
-  if(!inp.value.trim())return;
-  btn.disabled=true;btn.textContent='Unlocking…';err.textContent='';
-  if(fails>=3)await new Promise(r=>setTimeout(r,Math.min(fails,8)*1200));   // small slow-down after wrong tries
-  try{
-    const d=await vaultOpen(VAULT,inp.value);
-    Object.assign(CONFIG,{
-      name:String(d.name||CONFIG.name),from:String(d.from||''),finalMessage:String(d.finalMessage||CONFIG.finalMessage),
-      reasons:strArr(d.reasons,CONFIG.reasons),letter:strArr(d.letter,CONFIG.letter),captions:Array.isArray(d.captions)?d.captions.map(String):[]});
-    PHOTOS=(d.photos||[]).map(b=>URL.createObjectURL(new Blob([b64ToBytes(b)],{type:'image/jpeg'})));
-    VAULT=null;inp.value='';
-    applyConfig();
-    $('#lockIcon').textContent='🔓';burst(innerWidth/2,innerHeight/2,150);
-    setTimeout(startExperience,700);
-  }catch(x){
-    fails++;btn.disabled=false;btn.textContent='Unlock 💝';
-    err.textContent='Hmm, that\'s not it. Try again 💭';
-    inp.classList.remove('bad');void inp.offsetWidth;inp.classList.add('bad');inp.select();
-  }
-});
-function startExperience(){
-  $('#gate').classList.add('gone');
-  scenes[0].classList.add('active');popScene(scenes[0]);
-}
-function probe(n){   // open mode: find photos/N.(jpg|jpeg|png|webp)
+/* ---------- start-up: find photos/1..6 then begin ---------- */
+function probe(n){   // find photos/N.(jpg|jpeg|png|webp)
   const ex=['jpg','jpeg','png','webp','JPG','JPEG','PNG','WEBP'];
   return new Promise(res=>{let i=0;const nx=()=>{if(i>=ex.length)return res(null);const u=`photos/${n}.${ex[i++]}`;const im=new Image();im.onload=()=>res(u);im.onerror=nx;im.src=u};nx()});
 }
+function startExperience(){
+  scenes[0].classList.add('active');popScene(scenes[0]);
+}
 (async function boot(){
-  try{const r=await fetch('vault.enc',{cache:'no-store'});if(r.ok){const b=new Uint8Array(await r.arrayBuffer());if(vaultOK(b))VAULT=b}}catch(e){}
-  if(VAULT){showGate();return}
-  // open mode (no vault.enc): use CONFIG + photos/1..6
   PHOTOS=await Promise.all(Array.from({length:CONFIG.photoCount},(_,i)=>probe(i+1)));
-  applyConfig();$('#gate').classList.add('gone');startExperience();
+  applyConfig();startExperience();
 })();
 
 /* ---------- 1. lilies ---------- */
@@ -492,15 +430,21 @@ function lily(x,y,size,delay){
   for(let k=0;k<6;k++){h+=`<g class="petal" style="--r:${k*60+30}deg;--d:${delay+.9+k*.08}s"><line x1="0" y1="0" x2="0" y2="-45" stroke="#d96a00" stroke-width="2"/><circle cx="0" cy="-48" r="4" fill="#ffb703"/></g>`}
   s.innerHTML=h;return s;
 }
-function s1(){}
-(function(){
-  const f=$('#lilyField');const pos=[[15,20,170],[85,18,190],[50,12,150],[10,60,200],[90,62,210],[25,88,180],[75,90,190],[50,92,140]];
+function buildLilies(){
+  const f=$('#lilyField');f.innerHTML='';
+  const pos=[[15,20,170],[85,18,190],[50,12,150],[10,60,200],[90,62,210],[25,88,180],[75,90,190],[50,92,140]];
   pos.forEach((p,i)=>f.appendChild(lily(p[0],p[1],p[2],i*.35)));
-})();
-$('#startBtn').onclick=()=>{bgm.play().catch(()=>{});go(1)};
+}
+function s1(){buildLilies()}      // rebuilt on replay so the lilies bloom again
+buildLilies();
+$('#startBtn').onclick=()=>{playMusic();go(1)};
 
 /* ---------- 2. surprise ---------- */
-function s2(){}
+function s2(){   // reset the gift every time this scene starts (needed for "Watch again")
+  const g=$('#gift');delete g.dataset.done;g.style.animation='';g.textContent='🎁';
+  $('#giftHint').classList.remove('hidden');$('#surpText').classList.remove('show');
+  $('#s2 .btn').classList.add('hidden');
+}
 $('#gift').onclick=function(){
   if(this.dataset.done)return;this.dataset.done=1;
   this.style.animation='none';this.textContent='🎊';$('#giftHint').classList.add('hidden');
@@ -808,10 +752,14 @@ function s8(){
   $('#finalName').textContent=CONFIG.name+' 🎂';$('#finalMsg').textContent=CONFIG.finalMessage;
   const fp=$('#finalPhoto');fp.innerHTML='';
   const im=new Image();im.draggable=false;im.onerror=()=>{fp.innerHTML='<div style="font-size:5rem;line-height:220px">🎉</div>'};
-  if(PHOTOS[0]){im.src=PHOTOS[2];fp.appendChild(im)}else im.onerror();
+  if(PHOTOS[5]){im.src=PHOTOS[5];fp.appendChild(im)}else im.onerror();
   rain();clearInterval(fw);fw=setInterval(()=>burst(Math.random()*innerWidth,Math.random()*innerHeight*.6,70),900);
 }
-$('#replay').onclick=()=>{clearInterval(fw);go(0)};
+$('#replay').onclick=()=>{
+  clearInterval(fw);
+  try{bgm.currentTime=0;if(!muted)playMusic()}catch(e){}   // music restarts with the show
+  go(0);
+};
 </script>
 </body>
 </html>
